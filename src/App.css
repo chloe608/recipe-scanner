@@ -63,3 +63,16 @@
   .result, .result * { visibility: visible; }
   .result { position: absolute; left: 0; top: 0; width: 100%; }
 }
+
+.loading { display:flex; align-items:center; gap:10px; justify-content:center; margin:12px 0; }
+.spinner {
+  width:20px; height:20px; border-radius:50%;
+  border: 3px solid rgba(0,0,0,0.12);
+  border-top-color: #2b8aef;
+  animation: spin 0.8s linear infinite;
+}
+.loading-text { color:#333 }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

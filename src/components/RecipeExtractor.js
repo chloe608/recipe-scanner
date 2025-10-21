@@ -6,6 +6,7 @@ export default function RecipeExtractor() {
   const [htmlFile, setHtmlFile] = useState(null);
   const [recipe, setRecipe] = useState(null);
   const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
   const outputRef = useRef();
 
   function reset() {
@@ -15,6 +16,8 @@ export default function RecipeExtractor() {
 
   async function fetchAndExtract(fetchUrl) {
     reset();
+    if (!fetchUrl) return;
+    setIsLoading(true);
     try {
       const proxy = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(fetchUrl);
       const res = await fetch(proxy);
@@ -23,6 +26,8 @@ export default function RecipeExtractor() {
       extractFromHtml(text);
     } catch (e) {
       setError(e.message || String(e));
+    } finally {
+      setIsLoading(false);
     }
   }
 
@@ -31,8 +36,21 @@ export default function RecipeExtractor() {
     const f = e.target.files && e.target.files[0];
     if (!f) return;
     setHtmlFile(f.name);
+    setIsLoading(true);
     const reader = new FileReader();
-    reader.onload = (ev) => extractFromHtml(ev.target.result);
+    reader.onload = (ev) => {
+      try {
+        extractFromHtml(ev.target.result);
+      } catch (err) {
+        setError(String(err));
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    reader.onerror = (err) => {
+      setError('Failed to read file');
+      setIsLoading(false);
+    };
     reader.readAsText(f);
   }
 
@@ -101,11 +119,18 @@ export default function RecipeExtractor() {
     <div className="recipe-extractor">
       <h1>Recipe Scanner</h1>
       <div className="controls">
-        <input placeholder="Enter page URL" value={url} onChange={(e)=>setUrl(e.target.value)} />
-        <button onClick={()=>fetchAndExtract(url)} disabled={!url}>Fetch</button>
+        <input placeholder="Enter page URL" value={url} onChange={(e)=>setUrl(e.target.value)} disabled={isLoading} />
+        <button onClick={()=>fetchAndExtract(url)} disabled={!url || isLoading}>Fetch</button>
         <span className="or">or</span>
-        <input type="file" accept=".html,.htm,text/html" onChange={handleFile} />
+        <input type="file" accept=".html,.htm,text/html" onChange={handleFile} disabled={isLoading} />
       </div>
+
+      {isLoading && (
+        <div className="loading">
+          <div className="spinner" aria-hidden="true"></div>
+          <div className="loading-text">Loading…</div>
+        </div>
+      )}
 
       {error && <div className="error">{error}</div>}
 
@@ -136,9 +161,6 @@ export default function RecipeExtractor() {
         </div>
       )}
 
-      <div className="note">
-        Tip: If a direct fetch fails due to CORS, the app uses a public proxy. For production, host a server-side scraper or enable CORS on the target.
-      </div>
     </div>
   );
 }
