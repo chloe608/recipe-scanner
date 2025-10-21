@@ -9,6 +9,16 @@ export default function RecipeExtractor() {
   const [isLoading, setIsLoading] = useState(false);
   const outputRef = useRef();
 
+  function decodeHtml(str) {
+    if (!str || typeof str !== 'string') return str;
+    try {
+      const doc = new DOMParser().parseFromString(str, 'text/html');
+      return doc.documentElement.textContent;
+    } catch (e) {
+      return str;
+    }
+  }
+
   function reset() {
     setRecipe(null);
     setError(null);
@@ -68,17 +78,19 @@ export default function RecipeExtractor() {
         .find((obj) => obj && (obj['@type'] === 'Recipe' || (Array.isArray(obj['@type']) && obj['@type'].includes('Recipe'))));
 
       if (ld) {
-        const title = ld.name || ld.headline || '';
-        const ingredients = ld.recipeIngredient || ld.ingredients || [];
+        const title = decodeHtml(ld.name || ld.headline || '');
+        const ingredients = (ld.recipeIngredient || ld.ingredients || []).map(i => decodeHtml(i));
         let directions = [];
         if (ld.recipeInstructions) {
           if (Array.isArray(ld.recipeInstructions)) {
-            directions = ld.recipeInstructions.map((ri) => typeof ri === 'string' ? ri : (ri.text || ri.name || '')).filter(Boolean);
+            directions = ld.recipeInstructions.map((ri) => {
+              const val = typeof ri === 'string' ? ri : (ri.text || ri.name || '');
+              return decodeHtml(val);
+            }).filter(Boolean);
           } else if (typeof ld.recipeInstructions === 'string') {
-            directions = [ld.recipeInstructions];
+            directions = [decodeHtml(ld.recipeInstructions)];
           }
         }
-        // Try to find image in JSON-LD
         let image = null;
         if (ld.image) {
           if (typeof ld.image === 'string') image = ld.image;
@@ -89,23 +101,22 @@ export default function RecipeExtractor() {
         return;
       }
 
-      const title = (doc.querySelector('[itemprop="name"], .recipe-title, .entry-title, h1') || {}).textContent || '';
-      const ingredientsNodes = doc.querySelectorAll('[itemprop="recipeIngredient"], .ingredient, .ingredients li, .ingredients p');
-      const ingredients = Array.from(ingredientsNodes).map(n => n.textContent.trim()).filter(Boolean);
+  const title = decodeHtml((doc.querySelector('[itemprop="name"], .recipe-title, .entry-title, h1') || {}).textContent || '');
+  const ingredientsNodes = doc.querySelectorAll('[itemprop="recipeIngredient"], .ingredient, .ingredients li, .ingredients p');
+  const ingredients = Array.from(ingredientsNodes).map(n => decodeHtml(n.textContent.trim())).filter(Boolean);
 
-      const directionsNodes = doc.querySelectorAll('[itemprop="recipeInstructions"], .instructions li, .directions li, .instructions p, .steps li');
-      const directions = Array.from(directionsNodes).map(n => n.textContent.trim()).filter(Boolean);
+  const directionsNodes = doc.querySelectorAll('[itemprop="recipeInstructions"], .instructions li, .directions li, .instructions p, .steps li');
+  const directions = Array.from(directionsNodes).map(n => decodeHtml(n.textContent.trim())).filter(Boolean);
 
   if (!title && ingredients.length === 0 && directions.length === 0) {
         const srTitle = doc.querySelector('.entry-header__title') || doc.querySelector('.heading__title') || doc.querySelector('h1');
         const srIngredients = doc.querySelectorAll('.ingredient, .recipe-ingredients li, .ingredients__item');
         const srDirections = doc.querySelectorAll('.direction, .instructions__item, .recipe-directions__step');
-        const sTitle = srTitle ? srTitle.textContent.trim() : '';
-        const sIngredients = Array.from(srIngredients).map(n => n.textContent.trim()).filter(Boolean);
-        const sDirections = Array.from(srDirections).map(n => n.textContent.trim()).filter(Boolean);
+          const sTitle = srTitle ? decodeHtml(srTitle.textContent.trim()) : '';
+          const sIngredients = Array.from(srIngredients).map(n => decodeHtml(n.textContent.trim())).filter(Boolean);
+          const sDirections = Array.from(srDirections).map(n => decodeHtml(n.textContent.trim())).filter(Boolean);
 
         if (sTitle || sIngredients.length || sDirections.length) {
-          // try to find image using common selectors
           const imgNode = doc.querySelector('.featured-image img, .lead-media img, figure img, .post-media img, .photo img, .recipe-media img');
           const sImage = imgNode ? (imgNode.src || imgNode.getAttribute('data-src') || null) : null;
           setRecipe({ title: sTitle, ingredients: sIngredients, directions: sDirections, image: sImage });
@@ -113,7 +124,6 @@ export default function RecipeExtractor() {
         }
       }
 
-      // Try to extract image from meta tags (og:image, twitter:image) or first article image
       let image = null;
       const og = doc.querySelector('meta[property="og:image"], meta[name="og:image"]');
       if (og && og.content) image = og.content;
@@ -130,10 +140,37 @@ export default function RecipeExtractor() {
     }
   }
 
-  function downloadPdf() {
+  async function downloadPdf() {
     if (!outputRef.current) return;
-    const opt = { margin: 10, filename: (recipe && recipe.title ? recipe.title.replace(/\s+/g,'_') : 'recipe') + '.pdf', image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
-    html2pdf().set(opt).from(outputRef.current).save();
+    const imgEl = outputRef.current.querySelector('.cover-image');
+    if (imgEl && imgEl.src && !imgEl.src.startsWith('data:')) {
+      try {
+        const proxy = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(imgEl.src);
+        const resp = await fetch(proxy);
+        if (resp.ok) {
+          const blob = await resp.blob();
+          const dataUrl = await new Promise((resolve) => {
+            const r = new FileReader();
+            r.onload = () => resolve(r.result);
+            r.readAsDataURL(blob);
+          });
+          imgEl.src = dataUrl;
+        }
+      } catch (e) {
+      }
+    }
+
+    const filename = (recipe && recipe.title ? recipe.title.replace(/\s+/g,'_') : 'recipe') + '.pdf';
+    const opt = {
+      margin: [10, 10, 10, 10],
+      filename,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, allowTaint: false },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak: { mode: ['css', 'legacy'] }
+    };
+
+    await html2pdf().set(opt).from(outputRef.current).save();
   }
 
   return (
