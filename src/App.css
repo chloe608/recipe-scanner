@@ -36,3 +36,30 @@
     transform: rotate(360deg);
   }
 }
+
+.recipe-extractor {
+  max-width: 760px;
+  margin: 24px auto;
+  padding: 18px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+  color: #111;
+}
+.recipe-extractor h1 { font-size: 1.6rem; margin-bottom: 12px; }
+.controls { display:flex; gap:8px; align-items:center; margin-bottom:12px; }
+.controls input[type="text"], .controls input[type="url"] { flex:1; padding:8px; }
+.controls input[type="file"] { max-width: 220px; }
+.controls button { padding:8px 12px; }
+.or { margin: 0 8px; color:#666 }
+.result { text-align:left; background: #fff; padding: 16px; border-radius:6px; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+.recipe-title { font-size:1.4rem; margin:0 0 8px 0; }
+.result h3 { margin-bottom:6px; }
+.result ul { padding-left: 1.2em; }
+.actions { margin-top:12px; display:flex; gap:8px; }
+.note { margin-top:10px; font-size:0.85rem; color:#555 }
+.error { color: #a00; }
+
+@media print {
+  body * { visibility: hidden; }
+  .result, .result * { visibility: visible; }
+  .result { position: absolute; left: 0; top: 0; width: 100%; }
+}
