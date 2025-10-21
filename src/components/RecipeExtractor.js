@@ -78,7 +78,14 @@ export default function RecipeExtractor() {
             directions = [ld.recipeInstructions];
           }
         }
-        setRecipe({ title, ingredients, directions });
+        // Try to find image in JSON-LD
+        let image = null;
+        if (ld.image) {
+          if (typeof ld.image === 'string') image = ld.image;
+          else if (Array.isArray(ld.image) && ld.image.length) image = ld.image[0];
+          else if (ld.image.url) image = ld.image.url;
+        }
+        setRecipe({ title, ingredients, directions, image });
         return;
       }
 
@@ -89,7 +96,7 @@ export default function RecipeExtractor() {
       const directionsNodes = doc.querySelectorAll('[itemprop="recipeInstructions"], .instructions li, .directions li, .instructions p, .steps li');
       const directions = Array.from(directionsNodes).map(n => n.textContent.trim()).filter(Boolean);
 
-      if (!title && ingredients.length === 0 && directions.length === 0) {
+  if (!title && ingredients.length === 0 && directions.length === 0) {
         const srTitle = doc.querySelector('.entry-header__title') || doc.querySelector('.heading__title') || doc.querySelector('h1');
         const srIngredients = doc.querySelectorAll('.ingredient, .recipe-ingredients li, .ingredients__item');
         const srDirections = doc.querySelectorAll('.direction, .instructions__item, .recipe-directions__step');
@@ -98,12 +105,26 @@ export default function RecipeExtractor() {
         const sDirections = Array.from(srDirections).map(n => n.textContent.trim()).filter(Boolean);
 
         if (sTitle || sIngredients.length || sDirections.length) {
-          setRecipe({ title: sTitle, ingredients: sIngredients, directions: sDirections });
+          // try to find image using common selectors
+          const imgNode = doc.querySelector('.featured-image img, .lead-media img, figure img, .post-media img, .photo img, .recipe-media img');
+          const sImage = imgNode ? (imgNode.src || imgNode.getAttribute('data-src') || null) : null;
+          setRecipe({ title: sTitle, ingredients: sIngredients, directions: sDirections, image: sImage });
           return;
         }
       }
 
-      setRecipe({ title: title.trim(), ingredients, directions });
+      // Try to extract image from meta tags (og:image, twitter:image) or first article image
+      let image = null;
+      const og = doc.querySelector('meta[property="og:image"], meta[name="og:image"]');
+      if (og && og.content) image = og.content;
+      const tw = doc.querySelector('meta[name="twitter:image"], meta[property="twitter:image"]');
+      if (!image && tw && tw.content) image = tw.content;
+      if (!image) {
+        const firstImg = doc.querySelector('img');
+        if (firstImg) image = firstImg.src || firstImg.getAttribute('data-src') || null;
+      }
+
+      setRecipe({ title: title.trim(), ingredients, directions, image });
     } catch (e) {
       setError(String(e));
     }
@@ -135,7 +156,11 @@ export default function RecipeExtractor() {
       {error && <div className="error">{error}</div>}
 
       {recipe && (
-        <div className="result" ref={outputRef}>
+        <div className="result pdf-layout" ref={outputRef}>
+          {recipe.image && (
+            // eslint-disable-next-line jsx-a11y/img-redundant-alt
+            <img className="cover-image" src={recipe.image} alt={recipe.title ? recipe.title + ' image' : 'recipe image'} />
+          )}
           <h2 className="recipe-title">{recipe.title}</h2>
           {recipe.ingredients && recipe.ingredients.length>0 && (
             <div>
