@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import html2pdf from 'html2pdf.js';
+import PrimaryOutlineButton from './PrimaryOutlineButton';
 
 export default function RecipeExtractor() {
   const [url, setUrl] = useState('');
@@ -195,9 +196,9 @@ export default function RecipeExtractor() {
     <div className="recipe-extractor">
       <div className="top-nav">
         <div className="links">
-          <button className={view==='home'? 'nav-active':''} onClick={()=>setView('home')}>home</button>
+          <PrimaryOutlineButton className={view==='home'? 'nav-active':''} onClick={()=>setView('home')}>home</PrimaryOutlineButton>
           <span> | </span>
-          <button className={view==='saved'? 'nav-active':''} onClick={()=>setView('saved')}>saved recipes</button>
+          <PrimaryOutlineButton className={view==='saved'? 'nav-active':''} onClick={()=>setView('saved')}>saved recipes</PrimaryOutlineButton>
         </div>
       </div>
       <div className="centered-title">recipe scanner</div>
@@ -207,7 +208,7 @@ export default function RecipeExtractor() {
             <input className="big-search-input" placeholder="Enter page URL" value={url} onChange={(e)=>setUrl(e.target.value)} disabled={isLoading} />
           </div>
           <div style={{width:180, display:'flex', gap:8}}>
-            <button onClick={()=>fetchAndExtract(url)} disabled={!url || isLoading}>Fetch</button>
+            <PrimaryOutlineButton onClick={()=>fetchAndExtract(url)} disabled={!url || isLoading}>Fetch</PrimaryOutlineButton>
             <input type="file" accept=".html,.htm,text/html" onChange={handleFile} disabled={isLoading} />
           </div>
         </div>
@@ -221,8 +222,8 @@ export default function RecipeExtractor() {
               <div style={{fontWeight:600}}>{s.title}</div>
               <div style={{fontSize:12,color:'#666'}}>{new Date(s.timestamp).toLocaleString()}</div>
               <div style={{marginTop:6}}>
-                <button onClick={()=>{ setRecipe(s); setView('home'); }}>Open</button>
-                <button onClick={()=>removeSaved(s.id)} style={{marginLeft:8}}>Delete</button>
+                <PrimaryOutlineButton onClick={()=>{ setRecipe(s); setView('home'); }}>Open</PrimaryOutlineButton>
+                <PrimaryOutlineButton onClick={()=>removeSaved(s.id)} style={{marginLeft:8}}>Delete</PrimaryOutlineButton>
               </div>
             </div>
           ))}
@@ -264,9 +265,9 @@ export default function RecipeExtractor() {
 
       {recipe && (
         <div className="actions">
-          <button onClick={saveCurrentRecipe}>Save recipe</button>
-          <button onClick={downloadPdf}>Download PDF</button>
-          <button onClick={()=>{ setRecipe(null); setHtmlFile(null); setUrl(''); }}>Clear</button>
+          <PrimaryOutlineButton onClick={saveCurrentRecipe}>Save recipe</PrimaryOutlineButton>
+          <PrimaryOutlineButton onClick={downloadPdf}>Download PDF</PrimaryOutlineButton>
+          <PrimaryOutlineButton onClick={()=>{ setRecipe(null); setHtmlFile(null); setUrl(''); }}>Clear</PrimaryOutlineButton>
         </div>
       )}
 
