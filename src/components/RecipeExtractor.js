@@ -7,6 +7,10 @@ export default function RecipeExtractor() {
   const [recipe, setRecipe] = useState(null);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [view, setView] = useState('home'); // 'home' | 'saved'
+  const [saved, setSaved] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('savedRecipes') || '[]'); } catch { return []; }
+  });
   const outputRef = useRef();
 
   function decodeHtml(str) {
@@ -39,6 +43,20 @@ export default function RecipeExtractor() {
     } finally {
       setIsLoading(false);
     }
+  }
+
+  function saveCurrentRecipe() {
+    if (!recipe) return;
+    const entry = { id: Date.now(), timestamp: new Date().toISOString(), ...recipe };
+    const next = [entry, ...saved];
+    setSaved(next);
+    try { localStorage.setItem('savedRecipes', JSON.stringify(next)); } catch (e) {}
+  }
+
+  function removeSaved(id) {
+    const next = saved.filter(s => s.id !== id);
+    setSaved(next);
+    try { localStorage.setItem('savedRecipes', JSON.stringify(next)); } catch (e) {}
   }
 
   function handleFile(e) {
@@ -175,13 +193,41 @@ export default function RecipeExtractor() {
 
   return (
     <div className="recipe-extractor">
-      <h1>Recipe Scanner</h1>
-      <div className="controls">
-        <input placeholder="Enter page URL" value={url} onChange={(e)=>setUrl(e.target.value)} disabled={isLoading} />
-        <button onClick={()=>fetchAndExtract(url)} disabled={!url || isLoading}>Fetch</button>
-        <span className="or">or</span>
-        <input type="file" accept=".html,.htm,text/html" onChange={handleFile} disabled={isLoading} />
+      <div className="top-nav">
+        <div className="links">
+          <button className={view==='home'? 'nav-active':''} onClick={()=>setView('home')}>home</button>
+          <span> | </span>
+          <button className={view==='saved'? 'nav-active':''} onClick={()=>setView('saved')}>saved recipes</button>
+        </div>
       </div>
+      <div className="centered-title">recipe scanner</div>
+      {view==='home' && (
+        <div className="big-search split">
+          <div style={{flex:1, paddingRight:8}}>
+            <input className="big-search-input" placeholder="Enter page URL" value={url} onChange={(e)=>setUrl(e.target.value)} disabled={isLoading} />
+          </div>
+          <div style={{width:180, display:'flex', gap:8}}>
+            <button onClick={()=>fetchAndExtract(url)} disabled={!url || isLoading}>Fetch</button>
+            <input type="file" accept=".html,.htm,text/html" onChange={handleFile} disabled={isLoading} />
+          </div>
+        </div>
+      )}
+
+      {view==='saved' && (
+        <div className="saved-list">
+          {saved.length===0 && <div>No saved recipes yet.</div>}
+          {saved.map(s=> (
+            <div key={s.id} className="saved-item">
+              <div style={{fontWeight:600}}>{s.title}</div>
+              <div style={{fontSize:12,color:'#666'}}>{new Date(s.timestamp).toLocaleString()}</div>
+              <div style={{marginTop:6}}>
+                <button onClick={()=>{ setRecipe(s); setView('home'); }}>Open</button>
+                <button onClick={()=>removeSaved(s.id)} style={{marginLeft:8}}>Delete</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {isLoading && (
         <div className="loading">
@@ -218,6 +264,7 @@ export default function RecipeExtractor() {
 
       {recipe && (
         <div className="actions">
+          <button onClick={saveCurrentRecipe}>Save recipe</button>
           <button onClick={downloadPdf}>Download PDF</button>
           <button onClick={()=>{ setRecipe(null); setHtmlFile(null); setUrl(''); }}>Clear</button>
         </div>
